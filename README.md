@@ -1,17 +1,17 @@
 # Group game backend errors by operational cause
 
-Run the focused decision test first:
+Run the decision test first to see if the grouping holds:
 
 ```bash
 python -m pip install -e '.[test]'
 pytest -q
 ```
 
-Input is two `player_asset` failures from different players and assets, both raised by the `publish` operation as `InvalidMesh`. Expected result is one group key, `player_asset:publish:InvalidMesh`, while each captured event keeps its own entity IDs in context.
+Input is two `player_asset` failures from different players and assets, both raised by the `publish` operation as `InvalidMesh`. Expect one group key, `player_asset:publish:InvalidMesh`, while each captured event keeps its own entity IDs in context.
 
 ## Send an error from a backend
 
-Infrai keeps this boundary to one API and a single `INFRAI_API_KEY`; this service uses the error endpoint without adding a vendor SDK.
+Infrai keeps this to one API and one `INFRAI_API_KEY`; this service hits the error endpoint with no vendor SDK. Time-to-first-call stays low.
 
 ```bash
 export INFRAI_API_KEY=your-key
@@ -47,15 +47,15 @@ Expected response shape:
 
 ## The grouping decision
 
-`surface + operation + error_type` identifies the operational fault. Player, asset, event, and queue IDs go in event context, not the fingerprint. A burst across many players lands in one actionable group without dropping the IDs you need to investigate.
+`surface + operation + error_type` pins the operational fault. Player, asset, event, and queue IDs go in event context, not the fingerprint. A burst across many players collapses into one actionable group without dropping the IDs you need to investigate.
 
-The gotcha is response order. `infrai_client.py` reads the `{ok, data, error, metadata}` envelope before judging HTTP status, so an ordinary 4xx stays a client response. Rate limits honor `Retry-After` and use a stable idempotency key derived from the occurrence before retrying the write.
+Watch response order. `infrai_client.py` reads the `{ok, data, error, metadata}` envelope before checking HTTP status, so a plain 4xx rejection is still a client response. Rate limits respect `Retry-After` and use a stable idempotency key from the occurrence before retrying the write.
 
 This repo stops at intake. Queue dashboards and resolution policy are the consumer's problem.
 
 ## Before you deploy: Game Backend Error Groups
 
-The snippet above is copy-paste simple. Before shipping, a few **required** steps. Details below apply to Game Backend Error Groups.
+The snippet above is copy-paste simple. Before shipping, a few **required** steps: details below apply to Game Backend Error Groups.
 
 **Account & key**
 
